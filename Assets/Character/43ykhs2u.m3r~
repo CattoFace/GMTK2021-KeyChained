@@ -1,0 +1,122 @@
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+
+public class CharControl : MonoBehaviour
+{
+    public float maxSpeed = 30f;
+    public float jumpForce = 30f;
+    private bool jump;
+    private float move;
+    private Vector3 m_Velocity = Vector3.zero;
+    private bool m_FacingRight;
+    private readonly float m_MovementSmoothing = .05f;
+    private bool isGrounded;
+    public LayerMask ground;
+    public LayerMask ladder;
+    public LayerMask enemy;
+    public GameObject spawnpoint;
+    private float climb;
+    private bool canClimb;
+    private GameObject sign;
+    public TextMeshProUGUI ui;
+    public bool paused;
+    public int stage = 0;
+    private bool flag = false;
+    private float moveButton;
+    private bool jumpButton;
+    private float climbButton;
+    private bool interactButton;
+    private bool interact;
+
+    private void Start()
+    {
+        transform.position = spawnpoint.transform.position;
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+
+        moveButton = paused ? 0 : Input.GetAxis("Horizontal");
+        jumpButton = !paused && Input.GetButton("Jump");
+        climbButton = paused ? 0 : Input.GetAxis("Vertical");
+        interactButton = Input.GetButtonDown("Interact");
+        switch (stage)
+        {
+            case 0:
+                move = moveButton;
+                jump = jumpButton;
+                climb = climbButton;
+                interact = interactButton;
+                break;
+            case 1:
+                move = jumpButton ? 1 : moveButton;
+                jump = moveButton != 0 || jumpButton;
+                climb = climbButton;
+                interact = interactButton;
+                break;
+            case 2:
+                move = Mathf.Min(1, Mathf.Max(0, moveButton) + climbButton);
+                jump = jumpButton;
+                climb = Mathf.Min(1, Mathf.Max(0, moveButton) + climbButton);
+                interact = interactButton;
+                break;
+            case 3:
+                move = moveButton;
+                jump = Input.GetButton("Interact") || jumpButton;
+                climb = climbButton;
+                interact = interactButton || Input.GetButtonDown("Jump");
+                break;
+        }
+        isGrounded = GetComponent<EdgeCollider2D>().IsTouchingLayers(ground);
+        canClimb = GetComponent<CircleCollider2D>().IsTouchingLayers(ladder);
+        GetComponent<Animator>().SetBool("Air", !isGrounded);
+        GetComponent<Animator>().SetBool("Jump", jump);
+        GetComponent<Animator>().SetBool("Run", Mathf.Abs(move) > 0.1 && Mathf.Abs(GetComponent<Rigidbody2D>().velocity.x) >= 0.1);
+        if (GetComponent<CircleCollider2D>().IsTouchingLayers(enemy))
+        {
+            transform.position = spawnpoint.transform.position;
+        }
+        if (interact)
+        {
+            if (sign != null)
+            {
+                if (!paused)
+                {
+                    ui.text = sign.GetComponent<sign>().text + "\n Press E to stop reading sign";
+                    paused = true;
+                }
+                else
+                {
+                    ui.text = "Press E to read sign";
+                    paused = false;
+                }
+            }
+            else if (flag)
+            {
+                ui.enabled = false;
+                stage++;
+                transform.position = spawnpoint.transform.position;
+            }
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+
+        if (collision.gameObject.CompareTag("Sign"))
+        {
+            sign = collision.gameObject;
+            ui.enabled = true;
+            ui.text = "Press E to read sign";
+        }
+        else if (collision.gameObject.CompareTag("Flag"))
+        {
+            flag = true;
+            ui.text = "Stage Clear!\nPress E to go to the next stage";
+            ui.enabled = true;
+        }
+    }
+    private void OnTriggerExit2D(Collid
